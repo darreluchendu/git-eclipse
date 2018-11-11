@@ -1,10 +1,8 @@
 import java.io.*;
 import java.util.*;
 
-import sun.security.provider.certpath.AdjacencyList;
-
 /**
- program to find shortest path using Dijkstra's algorithm
+ * program to find shortest path using Dijkstra's algorithm
  */
 public class Main {
 
@@ -18,57 +16,58 @@ public class Main {
 		Scanner in = new Scanner(reader);
 
 		// read in the data here and create graph here
-		 int num_v=0;
-		 int row_num=0;
-		 String line=in.nextLine();
-		 int begin=0;
-		 int dest=0 ;
-		 ArrayList <Vertex> vertexList=new ArrayList<Vertex>();
-		 while (line!=""){
-			 Vertex vert=new Vertex(row_num-1);
-			 //String line=in.nextLine();
-			 String string_arr[]= line.split(" ");
-			 if (row_num==0) {
-				 num_v=Integer.parseInt(line);
-				 row_num++;
-				 line=in.nextLine();
-				 continue;
-			 }
-			 else if (row_num == num_v+1) {
-					 // converts char to int
-					  begin= Integer.parseInt(string_arr[0]);
-					  dest = Integer.parseInt(string_arr[1]);
-					  break;
-					// System.out.println(begin);
+		int num_v = 0;
+		int row_num = 0;
+		String line = in.nextLine();
+		int begin = 0;
+		int dest = 0;
+		ArrayList<Vertex> vertexList = new ArrayList<Vertex>();
+		while (line != "") {
+			Vertex vert = new Vertex(row_num - 1);
+			// String line=in.nextLine();
+			String string_arr[] = line.split(" ");
+			if (row_num == 0) {
+				num_v = Integer.parseInt(line);
+				row_num++;
+				line = in.nextLine();
+				continue;
+			} else if (row_num == num_v + 1) {
+				// converts char to int
+				begin = Integer.parseInt(string_arr[0]);
+				dest = Integer.parseInt(string_arr[1]);
+				break;
 
-			 }else {
+			} else {
 
-				 
-				 for (int i=0; i<num_v ;i++) {
-					 // converts char to int
-					 if (vert.getIndex()!=i) {
-						 vert.addToAdjList(i, Integer.parseInt(string_arr[i]));													 
-					 }	
-				 }
-			 }
-			 vertexList.add(vert);
-			 row_num++;
-			 line=in.nextLine();
-		 }
-		 
-			reader.close();
-			
+				for (int i = 0; i < num_v; i++) {
+					// converts char to int
+					if (vert.getIndex() != i && Integer.parseInt(string_arr[i]) != 0) {
+						vert.addToAdjList(i, Integer.parseInt(string_arr[i]));
+					}
+				}
+			}
+			vertexList.add(vert);
+			row_num++;
+			line = in.nextLine();
+		}
+		reader.close();
+		in.close();
 
-			// do the work here
+		// do the work here
+		Graph g = new Graph();
+		g.setVertices(vertexList);
+		int shortestDist = g.dijkstra(begin, dest);
+		String path = g.path;
+		if (shortestDist == -1) {
+			System.out.printf("There is no path from vertex %d to %d", begin, dest);
+		} else {
+			System.out.printf("Shortest distance from vertex %d to vertex %d is %d", begin, dest, shortestDist);
+			System.out.println("\nShortest path:" + path);
+		}
+		// end timer and print total time
+		long end = System.currentTimeMillis();
+		System.out.println("\nElapsed time: " + (end - start) + " milliseconds");
 
-			// end timer and print total time
-			long end = System.currentTimeMillis();
-			System.out.println("\nElapsed time: " + (end - start) + " milliseconds");
-			//System.out.println(vertexList.get(1));
-			Graph g= new Graph();
-			g.setVertices(vertexList);
-			PriorityQueue<Vertex> queue=g.dijkstra(begin, dest);
-			
 	}
 
 }

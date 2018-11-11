@@ -5,22 +5,22 @@ public class Vertex {
 	private LinkedList<AdjListNode> adjList; //list with adjacent vertices
 	private int index; // the index of the vertex in the graph
 
-    int predecessor; 
+	boolean visited; 
     int distance; 
 
-	
 	public Vertex(int n){
 		this.adjList = new LinkedList<AdjListNode>();
 		this.index = n;
-		this.predecessor = -1;
+		this.visited = false;
+
 		this.distance = -1;
 	}
 	
 	public Vertex (Vertex v){
-		this.predecessor = v.getPredecessor();
 		this.distance = v.getDistance();
 		this.adjList = v.getAdjList();
     	this.index = v.getIndex();
+    	this.visited = v.isVisited();
 	}
 
 	public int getDistance() {
@@ -47,15 +47,16 @@ public class Vertex {
 		this.index = index;
 	}
 
-	public int getPredecessor() {
-		return predecessor;
+	public boolean isVisited() {
+		return visited;
 	}
 
-	public void setPredecessor(int n) {
-		this.predecessor = n;
+	public void setVisited(boolean b) {
+		this.visited = b;
 	}
 
 	public void addToAdjList(int n, int weight){
         adjList.addLast(new AdjListNode(n, weight));
     }
+	
 }

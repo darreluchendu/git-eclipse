@@ -4,16 +4,14 @@ import java.util.LinkedList;
 import java.util.PriorityQueue;
 import java.util.Stack;
 
-
 public class Graph {
 	private ArrayList<Vertex> vertices;
+	String path;
 	double inf = Double.POSITIVE_INFINITY;
 
-	// private int size;
-
 	public Graph() {
-		// this.size = 0;
 		this.vertices = new ArrayList<Vertex>();
+		this.path = "";
 	}
 
 	public ArrayList<Vertex> getVertices() {
@@ -28,137 +26,66 @@ public class Graph {
 		this.vertices.add(v);
 	}
 
-//	public static boolean checkAdjacency(String s1, String s2) {
-//		int countDiff = 0;
-//		for (int i = 0; i < s1.length(); i++) {
-//			if (s1.charAt(i) != s2.charAt(i))
-//				countDiff++;
-//			if (countDiff > 1)
-//				return false;
-//		}
-//		return true;
-//	}
-
-//	public void doDijkstra(String start, String end) {
-//		//Vertex end = dijkstra(start, end);
-//		if (end == null){
-//			System.out.println(start + " " + end + "\nNo ladder is possible!");
-//			return;
-//		}
-//
-//		Stack<String> path = new Stack<String>();
-//		
-//		int currIndex = end.getIndex();
-//		int predecessorIndex = end.getPredecessor();
-//		String output = start + " " + end + "\nTotal weight " + end.getDistance();
-//
-//		while (currIndex != predecessorIndex)
-//		{
-//			Vertex current = vertices.get(currIndex);
-//			path.push(current.getWord());
-//			currIndex = predecessorIndex;
-//			predecessorIndex = vertices.get(currIndex).getPredecessor();
-//		}
-//		
-//		Vertex current = vertices.get(currIndex);
-//		path.push(current.getWord());
-//		
-//		String pathTrase = "";
-//		while (path.size() != 0){
-//			if (path.size() > 1)
-//				pathTrase += path.pop() + "->";
-//			else
-//				pathTrase += path.pop();
-//		}
-//		System.out.println(output + "\n" + pathTrase);
-//		
-//	}
-//	
-	public class vertCompare implements Comparator<Vertex>
-	{
-	    @Override
-	    public int compare(Vertex x, Vertex y)
-	    {
-	        if (x.getDistance() < y.getDistance())
-	        {
-	            return -1;
-	        }
-	        if (x.getDistance() > y.getDistance())
-	        {
-	            return 1;
-	        }
-	        return 0;
-	    }
-	}
-	public void updateDistances(PriorityQueue<Vertex> queue1,LinkedList<AdjListNode> list1){
-	for (AdjListNode node : list1) {
-		Vertex w = vertices.get(node.getVertexIndex());	
-		if (node.getWeight()==0) {
-			w.setDistance((int) inf);
-		}else {
-			w.setDistance(node.getWeight());
+	public class vertCompare implements Comparator<Vertex> {
+		@Override
+		public int compare(Vertex x, Vertex y) {
+			if (x.getDistance() < y.getDistance()) {
+				return -1;
+			}
+			if (x.getDistance() > y.getDistance()) {
+				return 1;
+			}
+			return 0;
 		}
-		queue1.add(w);
 	}
-	public PriorityQueue<Vertex> dijkstra(int start, int end) {
+
+	public int dijkstra(int start, int end) {
+		for (Vertex v : vertices) {
+			v.setDistance((int) inf);
+		}
+		Comparator<Vertex> comparator = new vertCompare();
+
+		Stack<Vertex> settled = new Stack<Vertex>();
+		PriorityQueue<Vertex> unsettled = new PriorityQueue<Vertex>(128, comparator);
+
 		Vertex begin = vertices.get(start);
 		Vertex dest = vertices.get(end);
-		
-		if (begin ==null || dest ==null)
-			return null;
-		
-		Comparator<Vertex> comparator = new vertCompare();
-		
-		
-		
-		begin.setVisited(true);
-		begin.setDistance(0); // initialize distance
-		begin.setPredecessor(begin.getIndex()); // v was initial/starting
-													// vertex
-	
-		Stack<Vertex> S = new Stack<Vertex>();
-		PriorityQueue<Vertex> queue = new PriorityQueue<Vertex>(128, comparator);
-		
-		
-		LinkedList<AdjListNode> list =begin.getAdjList();
-		updateDistances(queue, list);
-	
-		}
-		while (!queue.isEmpty()) { // while vertices to process
-			
-			S.push(queue.remove());
-			for (AdjListNode node : list) { // go through the adjacency list...
-				Vertex w = vertices.get(node.getVertexIndex());				
-				
-					w.setDistance(u.getDistance() + node.getWeight());
-					queue.add(w); 
-				
-				if (w.equals(dest)) {
-					return queue;
-				}
-				
-				}
-			S.push(queue.remove());
-			}
-		
-		
-		return queue;
-	}
 
+		if (begin == null || dest == null)
+			return 0;
+
+		unsettled.add(begin);
+		begin.setDistance(0);
+		begin.setPredecessor(-1);
+
+		while (!unsettled.isEmpty()) { // while vertices to process
+			Vertex current = unsettled.remove();
+			settled.push(current);
+			if (current.getIndex() == dest.getIndex()) {
+				int currentPath = current.getIndex();
+				while (currentPath != -1) {
+					int predecessor = vertices.get(currentPath).getPredecessor();
+					path = " " + Integer.toString(currentPath) + path;
+					currentPath = predecessor;
+				}
+				return current.getDistance();
+			}
+			LinkedList<AdjListNode> list = current.getAdjList();
+			for (AdjListNode node : list) { // go through the adjacency list...
+
+				Vertex w = vertices.get(node.getVertexIndex());
+				if (!settled.contains(w)) {
+					int newDist = node.getWeight() + current.getDistance();
+					if (newDist < w.getDistance()) {
+						w.setDistance(newDist);
+						unsettled.add(w);
+						w.setPredecessor(current.getIndex());
+					}
+
+				}
+
+			}
+		}
+		return -1;
+	}
 }
-//while (!queue.isEmpty()) { // while vertices to process
-//	Vertex u = queue.remove(); // get next vertex to process
-//	LinkedList<AdjListNode> list = u.getAdjList(); // get adjacency list of the vertex
-//	
-//	for (AdjListNode node : list) { // go through the adjacency list...
-//		if (node.getWeight()!=0) {
-//		Vertex w = vertices.get(node.getVertexIndex());				
-//		if (!w.isVisited()) { // ...for vertices that have not been
-//								// visited
-//			w.setVisited(true); // they have now been visited
-//			w.setPredecessor(u.getIndex());
-//			w.setDistance(u.getDistance() + node.getWeight());
-//			queue.add(w); 
-//		}
-//		if (w.equals(dest))
-//			return queue;

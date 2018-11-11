@@ -1,28 +1,27 @@
 public class AdjListNode {
-	
+
 	private int vertexIndex;
 	private int weight;
 
-	public AdjListNode(int n, int weight){
+	public AdjListNode(int n, int weight) {
 		this.vertexIndex = n;
 		this.weight = weight;
 	}
-	
-	public int getVertexIndex(){
+
+	public int getVertexIndex() {
 		return vertexIndex;
 	}
-	
 
-	public void setVertexIndex(int n){
+	public void setVertexIndex(int n) {
 		vertexIndex = n;
 	}
-	
-	public int getWeight(){
+
+	public int getWeight() {
 		return weight;
 	}
-	
-	public void setWeight(int w){
+
+	public void setWeight(int w) {
 		weight = w;
 	}
-	
+
 }
