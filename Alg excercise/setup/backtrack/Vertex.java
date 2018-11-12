@@ -16,13 +16,6 @@ public class Vertex {
 		this.distance = -1;
 	}
 	
-	public Vertex (Vertex v){
-		this.distance = v.getDistance();
-		this.adjList = v.getAdjList();
-    	this.index = v.getIndex();
-    	this.visited = v.isVisited();
-	}
-
 	public int getDistance() {
 		return distance;
 	}
@@ -38,6 +31,11 @@ public class Vertex {
 	public void setAdjList(LinkedHashSet<AdjListNode> adjList) {
 		this.adjList = adjList;
 	}
+	
+//	public void getAdjList(LinkedHashSet<AdjListNode> adjList) {
+//		this.adjList = adjList;
+//	}
+
 
 	public int getIndex() {
 		return index;
