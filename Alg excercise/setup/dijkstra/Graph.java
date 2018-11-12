@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.PriorityQueue;
@@ -46,7 +47,7 @@ public class Graph {
 		}
 		Comparator<Vertex> comparator = new vertCompare();
 
-		Stack<Vertex> settled = new Stack<Vertex>();
+		HashSet<Vertex> settled = new HashSet<Vertex>();
 		PriorityQueue<Vertex> unsettled = new PriorityQueue<Vertex>(128, comparator);
 
 		Vertex begin = vertices.get(start);
@@ -61,7 +62,7 @@ public class Graph {
 
 		while (!unsettled.isEmpty()) { // while vertices to process
 			Vertex current = unsettled.remove();
-			settled.push(current);
+			settled.add(current);
 			if (current.getIndex() == dest.getIndex()) {
 				int currentPath = current.getIndex();
 				while (currentPath != -1) {

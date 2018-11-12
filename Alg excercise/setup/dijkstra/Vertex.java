@@ -16,8 +16,6 @@ public class Vertex {
 		this.predecessor = -1;
 		this.distance = -1;
 	}
-	
-
 
 	public int getDistance() {
 		return distance;
