@@ -1,15 +1,15 @@
-import java.util.LinkedList;
+import java.util.LinkedHashSet;
 
 public class Vertex {
 	
-	private LinkedList<AdjListNode> adjList; //list with adjacent vertices
+	private LinkedHashSet<AdjListNode> adjList; //list with adjacent vertices
 	private int index; // the index of the vertex in the graph
 
 	boolean visited; 
     int distance; 
 
 	public Vertex(int n){
-		this.adjList = new LinkedList<AdjListNode>();
+		this.adjList = new LinkedHashSet<AdjListNode>();
 		this.index = n;
 		this.visited = false;
 
@@ -31,11 +31,11 @@ public class Vertex {
 		this.distance = distance;
 	}
 	
-	public LinkedList<AdjListNode> getAdjList() {
+	public LinkedHashSet<AdjListNode> getAdjList() {
 		return adjList;
 	}
 
-	public void setAdjList(LinkedList<AdjListNode> adjList) {
+	public void setAdjList(LinkedHashSet<AdjListNode> adjList) {
 		this.adjList = adjList;
 	}
 
@@ -56,7 +56,7 @@ public class Vertex {
 	}
 
 	public void addToAdjList(int n, int weight){
-        adjList.addLast(new AdjListNode(n, weight));
+        adjList.add(new AdjListNode(n, weight));
     }
 	
 }
