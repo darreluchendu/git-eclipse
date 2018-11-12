@@ -58,7 +58,7 @@ public class Graph {
 
 	public void recursive(int n) {
 		Vertex peek = vertices.get(currentPath.peek().getVertexIndex());
-		for (AdjListNode node : peek.adjList) {
+		for (AdjListNode node : peek.adjList()) {
 			Vertex v = vertices.get(node.getVertexIndex());
 			if (!v.visited) {
 				currentPath.addToPath(node);

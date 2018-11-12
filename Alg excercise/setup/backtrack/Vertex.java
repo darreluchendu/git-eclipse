@@ -24,7 +24,7 @@ public class Vertex {
 		this.distance = distance;
 	}
 	
-	public LinkedHashSet<AdjListNode> getAdjList() {
+	public LinkedHashSet<AdjListNode> adjList() {
 		return adjList;
 	}
 
