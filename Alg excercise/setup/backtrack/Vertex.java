@@ -2,7 +2,7 @@ import java.util.LinkedHashSet;
 
 public class Vertex {
 	
-	private LinkedHashSet<AdjListNode> adjList; //list with adjacent vertices
+	public LinkedHashSet<AdjListNode> adjList; //list with adjacent vertices
 	private int index; // the index of the vertex in the graph
 
 	boolean visited; 
