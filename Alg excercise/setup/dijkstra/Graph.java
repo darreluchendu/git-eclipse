@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.PriorityQueue;
 import java.util.Stack;
@@ -70,7 +71,7 @@ public class Graph {
 				}
 				return current.getDistance();
 			}
-			LinkedList<AdjListNode> list = current.getAdjList();
+			LinkedHashSet<AdjListNode> list = current.getAdjList();
 			for (AdjListNode node : list) { // go through the adjacency list...
 
 				Vertex w = vertices.get(node.getVertexIndex());
