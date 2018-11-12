@@ -56,12 +56,13 @@ public class Graph {
 		if (begin == null || dest == null)
 			return 0;
 
-		unsettled.add(begin);
+		unsettled.offer(begin);
 		begin.setDistance(0);
 		begin.setPredecessor(-1);
 
 		while (!unsettled.isEmpty()) { // while vertices to process
-			Vertex current = unsettled.remove();
+			Vertex current = unsettled.poll();
+			
 			settled.add(current);
 			if (current.getIndex() == dest.getIndex()) {
 				int currentPath = current.getIndex();
@@ -80,11 +81,11 @@ public class Graph {
 					int newDist = node.getWeight() + current.getDistance();
 					if (newDist < w.getDistance()) {
 						w.setDistance(newDist);
-						unsettled.add(w);
+						unsettled.offer(w);
 						w.setPredecessor(current.getIndex());
 					}
 
-				}
+				} 
 
 			}
 		}
