@@ -16,33 +16,21 @@ public class Path {
 
 	public void addToPath(AdjListNode n) {
 		this.path.push(n);
-		distance = getPathDistance();
+		distance = n.getWeight()+distance;
 	}
 
 	public void removeFromPath() {
-		this.path.pop();
-		distance = getPathDistance();
-	}
-
-	public int getDistance() {
-		return distance;
-
+		distance = distance-(this.path.pop().getWeight());
 	}
 
 	public int getPathDistance() {
 		if (!path.isEmpty()) {
-			int dist = 0;
-			for (AdjListNode node : path) {
-
-				dist += node.getWeight();
-				distance = dist;
-			}
+			return distance;
 
 		} else {
 			double inf = Double.POSITIVE_INFINITY;
 			return (int) inf;
 		}
-		return this.distance;
 	}
 
 	public AdjListNode peek() {

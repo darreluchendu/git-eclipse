@@ -21,8 +21,7 @@ public class Main {
 		String line = in.nextLine();
 		int begin = 0;
 		int dest = 0;
-		Vertex vertexList[]= {};
-		int list_count=0;
+		ArrayList<Vertex> vertexList=new ArrayList<Vertex>();
 		while (line != "") {
 			
 			Vertex vert = new Vertex(row_num - 1);
@@ -32,7 +31,6 @@ public class Main {
 				num_v = Integer.parseInt(line);
 				row_num++;
 				line = in.nextLine();
-				vertexList= new Vertex[num_v];
 				continue;
 				
 			} else if (row_num == num_v + 1) {
@@ -50,8 +48,7 @@ public class Main {
 					}
 				}
 			}
-			vertexList[list_count]=vert;
-			list_count++;
+			vertexList.add(vert);
 			row_num++;
 			line = in.nextLine();
 		}
@@ -64,10 +61,10 @@ public class Main {
 		g.setVertices(vertexList);
 		Path p = g.backtrack(begin, dest);
 		String path = g.path;
-		if (p.getDistance() == 0) {
+		if (p.getPathDistance() == Integer.MAX_VALUE) {
 			System.out.printf("There is no path from vertex %d to %d", begin, dest);
 		} else {
-			System.out.printf("Shortest distance from vertex %d to vertex %d is %d", begin, dest, p.getDistance());
+			System.out.printf("Shortest distance from vertex %d to vertex %d is %d", begin, dest, p.getPathDistance());
 			System.out.println("\nShortest path:" + path);
 		}
 		// end timer and print total time

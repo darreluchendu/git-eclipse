@@ -1,7 +1,8 @@
+import java.util.ArrayList;
 import java.util.Comparator;
 
 public class Graph {
-	private Vertex[] vertices;
+	private ArrayList<Vertex> vertices;
 	String path;
 	Path currentPath = new Path();
 	Path bestPath = new Path();
@@ -12,18 +13,19 @@ public class Graph {
 
 	public Graph() {
 		this.path = "";
+		this.vertices=new ArrayList<Vertex>();
 	}
 
-	public Vertex[] getVertices() {
+	public ArrayList<Vertex> getVertices() {
 		return vertices;
 	}
 
-	public void setVertices(Vertex[] vertexList) {
+	public void setVertices(ArrayList<Vertex> vertexList) {
 		this.vertices = vertexList;
 	}
 
 	public void addToList(Vertex v) {
-		this.vertices[list_count]=v;
+		this.vertices.add(v);
 		list_count++;
 	}
 
@@ -41,8 +43,8 @@ public class Graph {
 	}
 
 	public Path backtrack(int start, int end) {
-		begin = vertices[start];
-		dest = vertices[end];
+		begin = vertices.get(start);
+		dest = vertices.get(end);
 
 		currentPath.addToPath(new AdjListNode(begin.getIndex(), 0));
 		begin.visited = true;
@@ -55,10 +57,10 @@ public class Graph {
 	}
 
 	public void recursive(int n) {
-		Vertex peek = vertices[currentPath.peek().getVertexIndex()];
+		Vertex peek = vertices.get(currentPath.peek().getVertexIndex());
 		for (AdjListNode node : peek.getAdjList()) {
-			Vertex v = vertices[node.getVertexIndex()];
-			if (!v.isVisited()) {
+			Vertex v = vertices.get(node.getVertexIndex());
+			if (!v.visited) {
 				currentPath.addToPath(node);
 				v.visited = true;
 
@@ -72,8 +74,7 @@ public class Graph {
 				currentPath.removeFromPath();
 				v.visited = false;
 			}
+		}
 
 		}
 	}
-
-}
