@@ -1,3 +1,99 @@
+/*
+ * usage: ./dependencyDiscoverer [-Idir] ... file.c|file.l|file.y ...
+ *
+ * processes the c/yacc/lex source file arguments, outputting the dependencies
+ * between the corresponding .o file, the .c source file, and any included
+ * .h files
+ *
+ * each .h file is also processed to yield a dependency between it and any
+ * included .h files
+ *
+ * these dependencies are written to standard output in a form compatible with
+ * make; for example, assume that foo.c includes inc1.h, and inc1.h includes
+ * inc2.h and inc3.h; this results in
+ *
+ *                  foo.o: foo.c inc1.h inc2.h inc3.h
+ *
+ * note that system includes (i.e. those in angle brackets) are NOT processed
+ *
+ * dependencyDiscoverer uses the CPATH environment variable, which can contain a
+ * set of directories separated by ':' to find included files
+ * if any additional directories are specified in the command line,
+ * these are prepended to those in CPATH, left to right
+ *
+ * for example, if CPATH is "/home/user/include:/usr/local/group/include",
+ * and if "-Ifoo/bar/include" is specified on the command line, then when
+ * processing
+ *           #include "x.h"
+ * x.h will be located by searching for the following files in this order
+ *
+ *      ./x.h
+ *      foo/bar/include/x.h
+ *      /home/user/include/x.h
+ *      /usr/local/group/include/x.h
+ */
+
+/*
+ * general design of main()
+ * ========================
+ * There are three globally accessible variables:
+ * - dirs: a vector storing the directories to search for headers
+ * - theTable: a hash table mapping file names to a list of dependent file names
+ * - workQ: a list of file names that have to be processed
+ *
+ * 1. look up CPATH in environment
+ * 2. assemble dirs vector from ".", any -Idir flags, and fields in CPATH
+ *    (if it is defined)
+ * 3. for each file argument (after -Idir flags)
+ *    a. insert mapping from file.o to file.ext (where ext is c, y, or l) into
+ *       table
+ *    b. insert mapping from file.ext to empty list into table
+ *    c. append file.ext on workQ
+ * 4. for each file on the workQ
+ *    a. lookup list of dependencies
+ *    b. invoke process(name, list_of_dependencies)
+ * 5. for each file argument (after -Idir flags)
+ *    a. create a hash table in which to track file names already printed
+ *    b. create a linked list to track dependencies yet to print
+ *    c. print "foo.o:", insert "foo.o" into hash table
+ *       and append "foo.o" to linked list
+ *    d. invoke printDependencies()
+ *
+ * general design for process()
+ * ============================
+ *
+ * 1. open the file
+ * 2. for each line of the file
+ *    a. skip leading whitespace
+ *    b. if match "#include"
+ *       i. skip leading whitespace
+ *       ii. if next character is '"'
+ *           * collect remaining characters of file name (up to '"')
+ *           * append file name to dependency list for this open file
+ *           * if file name not already in the master Table
+ *             - insert mapping from file name to empty list in master table
+ *             - append file name to workQ
+ * 3. close file
+ *
+ * general design for printDependencies()
+ * ======================================
+ *
+ * 1. while there is still a file in the toProcess linked list
+ * 2. fetch next file from toProcess
+ * 3. lookup up the file in the master table, yielding the linked list of dependencies
+ * 4. iterate over dependenceies
+ *    a. if the filename is already in the printed hash table, continue
+ *    b. print the filename
+ *    c. insert into printed
+ *    d. append to toProcess
+ *
+ * Additional helper functions
+ * ===========================
+ *
+ * dirName() - appends trailing '/' if needed
+ * parseFile() - breaks up filename into root and extension
+ * openFile()  - attempts to open a filename using the search path defined by the dirs vector.
+ */
 #include <list>
 #include <functional>
 #include <mutex>
