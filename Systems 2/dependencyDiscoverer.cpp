@@ -22,10 +22,10 @@ struct work_queue {
   private: 
     std::list<std::string> q;
     std::mutex m;
-    std:: condition_variable ready;
     bool done = false;
 
   public:
+    std::condition_variable ready;
     std::optional<std::string> try_pop() {
       std::unique_lock<std::mutex> lock(m, std::try_to_lock);
       if (!lock || q.empty()) return {};
@@ -44,7 +44,7 @@ struct work_queue {
       return true;
     }
 
-    std::optional<std::string> pop() {
+    std::string pop() {
       std::unique_lock<std::mutex> lock(m);
       ready.wait(lock, [this]{ return (!q.empty()) || done; });
       if (q.empty()) return {};
@@ -75,11 +75,11 @@ struct work_queue {
 
 struct hash_map {
   private: 
-    std::unordered_map<std::string, std::list<std::string>> t;
     std::mutex m;
     std::condition_variable ready;
 
   public:
+  std::unordered_map<std::string, std::list<std::string>> t;
     void push(std::string key,std::list<std::string> items) {
       {
         std::unique_lock<std::mutex> lock(m);
@@ -131,6 +131,10 @@ struct hash_map {
 std::vector<std::string> dirs;
 hash_map theTable;
 work_queue workQ;
+int numOfWorkThreads;
+int numWaitingThreads;
+bool isWorking;
+
 
 std::string dirName(const char * c_str) {
   std::string s = c_str; // s takes ownership of the string content by allocating memory for it
@@ -191,11 +195,13 @@ static void process(const char *file, std::list<std::string> *ll) {
     // 2bii. append file name to dependency list
     ll->push_back( {name} );
     // 2bii. if file name not already in table ...
-    if (theTable.get().find(name) != theTable.get().end()) { continue; }
+    if (theTable.t.find(name) != theTable.t.end()) { continue; }
     // ... insert mapping from file name to empty list in table ...
     theTable.push(  name, {}  );
     // ... append file name to workQ
     workQ.push( name );
+    numWaitingThreads--;
+    workQ.ready.notify_all();
   }
   // 3. close file
   fclose(fd);
@@ -213,7 +219,7 @@ static void printDependencies(std::unordered_set<std::string> *printed,
     std::string name = toProcess->front();
     toProcess->pop_front();
     // 3. lookup file in the table, yielding list of dependencies
-    std::list<std::string> *ll = &theTable.get()[name];
+    std::list<std::string> *ll = &theTable.t[name];
     // 4. iterate over dependencies
     for (auto iter = ll->begin(); iter != ll->end(); iter++) {
       // 4a. if filename is already in the printed table, continue
@@ -227,10 +233,54 @@ static void printDependencies(std::unordered_set<std::string> *printed,
     }
   }
 }
+void run(int start, int argc, char *argv[]) {
+  int i;
+  // 4. for each file on the workQ
+  while ( workQ.get().size() > 0 ) {
+     std::string filename = workQ.pop();
 
+    if (theTable.t.find(filename) == theTable.t.end()) {
+      fprintf(stderr, "Mismatch between table and workQ\n");
+      exit(-1);
+    }
+
+    // 4a&b. lookup dependencies and invoke 'process'
+    process(filename.c_str(), &theTable.t[filename]);
+  }
+
+  // 5. for each file argument
+  for (i = start; i < argc; i++) {
+    // 5a. create hash table in which to track file names already printed
+    std::unordered_set<std::string> printed;
+    // 5b. create list to track dependencies yet to print
+    std::list<std::string> toProcess;
+
+    std::pair<std::string, std::string> pair = parseFile(argv[i]);
+
+    std::string obj = pair.first + ".o";
+    // 5c. print "foo.o:" ...
+    printf("%s:", obj.c_str());
+    // 5c. ... insert "foo.o" into hash table and append to list
+    printed.insert( obj );
+    toProcess.push_back( obj );
+    // 5d. invoke
+    printDependencies(&printed, &toProcess, stdout);
+
+    printf("\n");
+  }
+}
 int main(int argc, char *argv[]) {
   // 1. look up CPATH in environment
   char *cpath = getenv("CPATH");
+
+    const char * threadsStr = getenv("CRAWLER_THREADS");
+		int numThreads = 2;
+		if (threadsStr!=NULL){
+      int x; 
+      sscanf(threadsStr, "%d", &x); 
+			numThreads = x;
+    }
+
 
   // determine the number of -Idir arguments
   int i;
@@ -277,40 +327,40 @@ int main(int argc, char *argv[]) {
     // 3c. append file.ext on workQ
     workQ.push( argv[i] );
   }
-
-  // 4. for each file on the workQ
-  while ( workQ.get().size() > 0 ) {
-     std::optional<std::string> filename = workQ.pop();
-
-    if (theTable.get().find(filename) == theTable.get().end()) {
-      fprintf(stderr, "Mismatch between table and workQ\n");
-      return -1;
+  std::vector<std::thread> threads;
+  numOfWorkThreads = numThreads;
+   printf("Start task system with %d threads\n", numThreads);
+    for (auto n = 0; n !=numThreads; n++) {
+      threads.emplace_back([start,argc,argv](){ run(start,argc,argv); });
     }
-
-    // 4a&b. lookup dependencies and invoke 'process'
-    process(filename.c_str(), &theTable.get()[filename]);
+  std::string nextFile=workQ.get().front(); 
+  while(&nextFile==NULL){
+    	if (numWaitingThreads >= numOfWorkThreads)
+					{
+						isWorking = false;
+					  workQ.ready.notify_all();
+					}
+					else
+					{
+						numWaitingThreads++;
+						workQ.ready.wait();
+					}
+					
+					if (!isWorking)
+					{
+						break;
+					}	
   }
-
-  // 5. for each file argument
-  for (i = start; i < argc; i++) {
-    // 5a. create hash table in which to track file names already printed
-    std::unordered_set<std::string> printed;
-    // 5b. create list to track dependencies yet to print
-    std::list<std::string> toProcess;
-
-    std::pair<std::string, std::string> pair = parseFile(argv[i]);
-
-    std::string obj = pair.first + ".o";
-    // 5c. print "foo.o:" ...
-    printf("%s:", obj.c_str());
-    // 5c. ... insert "foo.o" into hash table and append to list
-    printed.insert( obj );
-    toProcess.push_back( obj );
-    // 5d. invoke
-    printDependencies(&printed, &toProcess, stdout);
-
-    printf("\n");
+  while(&nextFile!=NULL){
+    std::list<std::string> *ll = &theTable.t[nextFile];
+    process(nextFile.c_str(), ll);
+	  theTable.get.push(nextFile, ll);
+	  nextFile = workQ.get().front(); 
   }
-
+    workQ.setDone();
+    for (auto n = 0; n != numThreads; n++) {
+      threads[n].join();
+    }
+     run(start,argc,argv);
   return 0;
 }

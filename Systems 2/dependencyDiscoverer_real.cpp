@@ -332,6 +332,7 @@ int main(int argc, char *argv[]) {
   }
 
   // 4. for each file on the workQ
+
   while ( workQ.size() > 0 ) {
     std::string filename = workQ.front();
     workQ.pop_front();
@@ -365,6 +366,6 @@ int main(int argc, char *argv[]) {
 
     printf("\n");
   }
-
+  
   return 0;
 }
