@@ -115,7 +115,7 @@
 #include <list>
 // Structs
 struct work_queue {
-  private: 
+  private:
     std::list<std::string> q;
     std::mutex m;
     std:: condition_variable ready;
@@ -167,7 +167,7 @@ struct work_queue {
 };
 
 struct hash_map {
-  private: 
+  private:
     std::unordered_map<std::string, std::list<std::string>> t;
     std::mutex m;
     std::condition_variable ready;
@@ -226,7 +226,7 @@ static void process(const char *file, std::list<std::string> *ll) {
     char *p = buf;
     // 2a. skip leading whitespace
     while (isspace((int)*p)) { p++; }
-    // 2b. if match #include 
+    // 2b. if match #include
     if (strncmp(p, "#include", 8) != 0) { continue; }
     p += 8; // point to first character past #include
     // 2bi. skip leading whitespace
@@ -281,6 +281,7 @@ static void printDependencies(std::unordered_set<std::string> *printed,
   }
 }
 
+i
 int main(int argc, char *argv[]) {
   // 1. look up CPATH in environment
   char *cpath = getenv("CPATH");
@@ -322,28 +323,63 @@ int main(int argc, char *argv[]) {
     std::string obj = pair.first + ".o";
 
     // 3a. insert mapping from file.o to file.ext
-    theTable.insert( { obj, { argv[i] } } );
-    
+    theTable.insert( obj, { argv[i] } );
+
     // 3b. insert mapping from file.ext to empty list
-    theTable.insert( { argv[i], { } } );
-    
+    theTable.insert( argv[i], { } );
+
     // 3c. append file.ext on workQ
     workQ.push_back( argv[i] );
   }
 
-  // 4. for each file on the workQ
+  /* Number of threads, default 2, otherwise
+  defined by env-variable CRAWLER_THREADS */
+  int num_threads = 2;
+  char * crawler_threads = getenv("CRAWLER_THREADS");
+  if (crawler_threads) {
+    num_threads = atoi(crawler_threads);
+  }
 
-  while ( workQ.size() > 0 ) {
-    std::string filename = workQ.front();
-    workQ.pop_front();
+  /* Array to store threads in. Dynamically allocated
+  to use variable for size (c++11 requires this). */
+  std::thread * t = new std::thread[num_threads];
+  for (int i = 0; i < num_threads; i++) {
+    // printf("Start thread %d.\n", i);
+    t[i] = std::thread([] {
+      // 4. for each file on the workQ
+      while ( workQ.size() > 0 ) {
+        /* Use the thread safe version. Returns an empty string if
+        the size has changed to 0 in the mean time. */
+        std::string filename = workQ.ts_pop_front();
+        if ( filename.compare("") ) {
+          if (theTable.find(filename) == theTable.end()) {
+            mismatch = true;
+          } else {
+            // printf("Thread %d is processing...\n", i);
+            // 4a&b. lookup dependencies and invoke 'process'
+            process(filename.c_str(), theTable.getList(filename));
+          }
+        }
+      }
+    });
+  }
 
-    if (theTable.find(filename) == theTable.end()) {
-      fprintf(stderr, "Mismatch between table and workQ\n");
-      return -1;
-    }
+  /* Check if queue is empty with condition_variable in workQ. Prevent
+  the main thread to do any busy waiting here before joining threads. */
+  workQ.waitTillEmpty();
 
-    // 4a&b. lookup dependencies and invoke 'process'
-    process(filename.c_str(), &theTable[filename]);
+  /* Join all threads. */
+  for (int i = 0; i < num_threads; i++) {
+    t[i].join();
+  }
+
+  /* Delete array from heap and clear reference. */
+  delete [] t;
+  t = NULL;
+
+  if (mismatch) {
+    fprintf(stderr, "Mismatch between table and workQ\n");
+    return -1;
   }
 
   // 5. for each file argument
@@ -366,6 +402,6 @@ int main(int argc, char *argv[]) {
 
     printf("\n");
   }
-  
+
   return 0;
 }

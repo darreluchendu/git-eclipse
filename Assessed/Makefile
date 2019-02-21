@@ -1,2 +1,2 @@
 dnslookup: dnslookup.c
-	gcc -W -Wall dnslookup.c -o dnslookup
+	clang -W -Wall dnslookup.c -o dnslookup

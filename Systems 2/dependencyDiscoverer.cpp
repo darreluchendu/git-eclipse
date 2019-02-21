@@ -1,143 +1,213 @@
-#include <list>
-#include <functional>
-#include <mutex>
-#include <condition_variable>
-#include <thread>
-#include <optional>
-#include <chrono>
-#include <atomic>
+/*
+  Author: Darrel Uchendu
+  GUID: 2236676u
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+  Course: Systems Programming
+  Coursework: SP Coursework 2
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
-#include <list>
-// Structs
-struct work_queue {
-  private: 
+  Submission Date: 30. Nov. 2018
+
+  "This is my own work as defined in the Academic Ethics agreement I have signed."
+*/
+
+/*
+ * usage: ./dependencyDiscoverer [-Idir] ... file.c|file.l|file.y ...
+ *
+ * processes the c/yacc/lex source file arguments, outputting the dependencies
+ * between the corresponding .o file, the .c source file, and any included
+ * .h files
+ *
+ * each .h file is also processed to yield a dependency between it and any
+ * included .h files
+ *
+ * these dependencies are written to standard output in a form compatible with
+ * make; for example, assume that foo.c includes inc1.h, and inc1.h includes
+ * inc2.h and inc3.h; this results in
+ *
+ *                  foo.o: foo.c inc1.h inc2.h inc3.h
+ *
+ * note that system includes (i.e. those in angle brackets) are NOT processed
+ *
+ * dependencyDiscoverer uses the CPATH environment variable, which can contain a
+ * set of directories separated by ':' to find included files
+ * if any additional directories are specified in the command line,
+ * these are prepended to those in CPATH, left to right
+ *
+ * for example, if CPATH is "/home/user/include:/usr/local/group/include",
+ * and if "-Ifoo/bar/include" is specified on the command line, then when
+ * processing
+ *           #include "x.h"
+ * x.h will be located by searching for the following files in this order
+ *
+ *      ./x.h
+ *      foo/bar/include/x.h
+ *      /home/user/include/x.h
+ *      /usr/local/group/include/x.h
+ */
+
+/*
+ * general design of main()
+ * ========================
+ * There are three globally accessible variables:
+ * - dirs: a vector storing the directories to search for headers
+ * - theTable: a hash table mapping file names to a list of dependent file names
+ * - workQ: a list of file names that have to be processed
+ *
+ * 1. look up CPATH in environment
+ * 2. assemble dirs vector from ".", any -Idir flags, and fields in CPATH
+ *    (if it is defined)
+ * 3. for each file argument (after -Idir flags)
+ *    a. insert mapping from file.o to file.ext (where ext is c, y, or l) into
+ *       table
+ *    b. insert mapping from file.ext to empty list into table
+ *    c. append file.ext on workQ
+ * 4. for each file on the workQ
+ *    a. lookup list of dependencies
+ *    b. invoke process(name, list_of_dependencies)
+ * 5. for each file argument (after -Idir flags)
+ *    a. create a hash table in which to track file names already printed
+ *    b. create a linked list to track dependencies yet to print
+ *    c. print "foo.o:", insert "foo.o" into hash table
+ *       and append "foo.o" to linked list
+ *    d. invoke printDependencies()
+ *
+ * general design for process()
+ * ============================
+ *
+ * 1. open the file
+ * 2. for each line of the file
+ *    a. skip leading whitespace
+ *    b. if match "#include"
+ *       i. skip leading whitespace
+ *       ii. if next character is '"'
+ *           * collect remaining characters of file name (up to '"')
+ *           * append file name to dependency list for this open file
+ *           * if file name not already in the master Table
+ *             - insert mapping from file name to empty list in master table
+ *             - append file name to workQ
+ * 3. close file
+ *
+ * general design for printDependencies()
+ * ======================================
+ *
+ * 1. while there is still a file in the toProcess linked list
+ * 2. fetch next file from toProcess
+ * 3. lookup up the file in the master table, yielding the linked list of dependencies
+ * 4. iterate over dependenceies
+ *    a. if the filename is already in the printed hash table, continue
+ *    b. print the filename
+ *    c. insert into printed
+ *    d. append to toProcess
+ *
+ * Additional helper functions
+ * ===========================
+ *
+ * dirName() - appends trailing '/' if needed
+ * parseFile() - breaks up filename into root and extension
+ * openFile()  - attempts to open a filename using the search path defined by the dirs vector.
+ */
+
+ #include <list>
+ #include <functional>
+ #include <mutex>
+ #include <condition_variable>
+ #include <thread>
+
+ #include <ctype.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+
+ #include <string>
+ #include <vector>
+ #include <unordered_map>
+ #include <unordered_set>
+
+
+
+
+struct WorkQueue {
+  private:
     std::list<std::string> q;
     std::mutex m;
-    bool done = false;
+    std::condition_variable isEmpty;
 
   public:
-    std::condition_variable ready;
-    std::optional<std::string> try_pop() {
-      std::unique_lock<std::mutex> lock(m, std::try_to_lock);
-      if (!lock || q.empty()) return {};
-      auto f = q.front();
-      q.pop_front();
-      return f;
-    }
-
-    bool try_push(std::string f) {
-      {
-        std::unique_lock<std::mutex> lock(m, std::try_to_lock);
-        if (!lock) return false;
-        q.push_back(f);
-      }
-      ready.notify_one();
-      return true;
-    }
-
-    std::string pop() {
+    int size() {
       std::unique_lock<std::mutex> lock(m);
-      ready.wait(lock, [this]{ return (!q.empty()) || done; });
-      if (q.empty()) return {};
-      auto f = q.front();
+      return q.size();
+    }
+    void pop() {
+      std::unique_lock<std::mutex> lock(m);
       q.pop_front();
+    }
+
+
+    std::string front() {
+      std::unique_lock<std::mutex> lock(m);
+      return q.front();
+    }
+
+
+
+    void push_back(std::string string) {
+      std::unique_lock<std::mutex> lock(m);
+      q.push_back(string);
+    }
+    std::string ts_pop() {
+      std::unique_lock<std::mutex> lock(m);
+      if (q.empty()) return "";
+     std::string f = q.front();
+      q.pop_front();
+      isEmpty.notify_all();
       return f;
     }
-
-    void push(std::string f) {
-      {
-        std::unique_lock<std::mutex> lock(m);
-        q.push_back(f);
-      }
-      ready.notify_one();
+    void wait() {
+      std::unique_lock<std::mutex> lock(m);
+      isEmpty.wait(lock, [this]{ return q.size() == 0; });
     }
 
-    void setDone() {
-      {
-        std::unique_lock<std::mutex> lock(m);
-        done = true;
-      }
-      ready.notify_all();
-    }
-    std::list<std::string> get(){
-      return q;
-    }
 };
 
-struct hash_map {
-  private: 
+
+struct HashMap {
+  private:
+    std::unordered_map<std::string, std::list<std::string>> t;
     std::mutex m;
-    std::condition_variable ready;
 
   public:
-  std::unordered_map<std::string, std::list<std::string>> t;
-    void push(std::string key,std::list<std::string> items) {
-      {
+      std::list<std::string, std::allocator<std::string>> * getList(std::string filename) {
         std::unique_lock<std::mutex> lock(m);
-       t.insert( { key,items } );
+        return &t[filename];
       }
-      ready.notify_one();
+
+    std::unordered_map<std::string, std::list<std::string>>::iterator end() {
+      std::unique_lock<std::mutex> lock(m);
+      return t.end();
     }
-    std::unordered_map<std::string, std::list<std::string>> get(){
-      return t;
+
+    void ll_push_back(std::string filename, std::string name) {
+      std::unique_lock<std::mutex> lock(m);
+      t[filename].push_back( {name} );
     }
+    void insert(std::string string, std::list<std::string> list) {
+      std::unique_lock<std::mutex> lock(m);
+      t.insert( { string, list } );
+    }
+
+    std::unordered_map<std::string, std::list<std::string>>::iterator find (std::string key) {
+      std::unique_lock<std::mutex> lock(m);
+      return t.find(key);
+    }
+
 };
-
-// struct task_system {
-// private:
-//   const int count = std::thread::hardware_concurrency();
-//   std::vector<std::thread> threads;
-//   work_queue q;
-
-//   void run(int i) {
-//     while (true) {
-//       auto optional_f = q.pop();
-//       if (!optional_f.has_value()) return;
-//       auto f = optional_f.value();
-//       f();
-//     }
-//   }
-
-// public:
-//   task_system() {
-//     printf("Start task system with %d threads\n", count);
-//     for (auto n = 0; n != count; n++) {
-//       threads.emplace_back([this, n](){ run(n); });
-//     }
-//   }
-
-//   ~task_system() {
-//     q.setDone();
-//     for (auto n = 0; n != count; n++) {
-//       threads[n].join();
-//     }
-//   }
-
-//   void async(std::function<void()> f) {
-//     q.push(f);
-//   }
-// };
-
-
 std::vector<std::string> dirs;
-hash_map theTable;
-work_queue workQ;
-int numOfWorkThreads;
-int numWaitingThreads;
-bool isWorking;
+struct WorkQueue workQ;
+struct HashMap theTable;
 
 
 std::string dirName(const char * c_str) {
-  std::string s = c_str; // s takes ownership of the string content by allocating memory for it
+  std::string s = c_str;
   if (s.back() != '/') { s += '/'; }
   return s;
 }
@@ -164,6 +234,35 @@ static FILE *openFile(const char *file) {
   return NULL;
 }
 
+
+
+// iteratively print dependencies
+static void printDependencies(std::unordered_set<std::string> *printed,
+                              std::list<std::string> *toProcess,
+                              FILE *fd) {
+  if (!printed || !toProcess || !fd) return;
+
+  // 1. while there is still a file in the toProcess list
+  while ( toProcess->size() > 0 ) {
+    // 2. fetch next file to process
+    std::string name = toProcess->front();
+    toProcess->pop_front();
+    // 3. lookup file in the table, yielding list of dependencies
+    std::list<std::string> *ll = theTable.getList(name);
+    // 4. iterate over dependencies
+    for (auto iter = ll->begin(); iter != ll->end(); iter++) {
+      // 4a. if filename is already in the printed table, continue
+      if (printed->find(*iter) != printed->end()) { continue; }
+      // 4b. print filename
+      fprintf(fd, " %s", iter->c_str());
+      // 4c. insert into printed
+      printed->insert( *iter );
+      // 4d. append to toProcess
+      toProcess->push_back( *iter );
+    }
+  }
+}
+
 // process file, looking for #include "foo.h" lines
 static void process(const char *file, std::list<std::string> *ll) {
   char buf[4096], name[4096];
@@ -177,7 +276,7 @@ static void process(const char *file, std::list<std::string> *ll) {
     char *p = buf;
     // 2a. skip leading whitespace
     while (isspace((int)*p)) { p++; }
-    // 2b. if match #include 
+    // 2b. if match #include
     if (strncmp(p, "#include", 8) != 0) { continue; }
     p += 8; // point to first character past #include
     // 2bi. skip leading whitespace
@@ -194,93 +293,32 @@ static void process(const char *file, std::list<std::string> *ll) {
     *q = '\0';
     // 2bii. append file name to dependency list
     ll->push_back( {name} );
+    // theTable.ll_push_back( filename, {name} );
+
     // 2bii. if file name not already in table ...
-    if (theTable.t.find(name) != theTable.t.end()) { continue; }
+    if (theTable.find(name) != theTable.end()) { continue; }
     // ... insert mapping from file name to empty list in table ...
-    theTable.push(  name, {}  );
+    theTable.insert( name, {} );
     // ... append file name to workQ
-    workQ.push( name );
-    numWaitingThreads--;
-    workQ.ready.notify_all();
+    workQ.push_back( name );
   }
   // 3. close file
   fclose(fd);
 }
-
-// iteratively print dependencies
-static void printDependencies(std::unordered_set<std::string> *printed,
-                              std::list<std::string> *toProcess,
-                              FILE *fd) {
-  if (!printed || !toProcess || !fd) return;
-
-  // 1. while there is still a file in the toProcess list
-  while ( toProcess->size() > 0 ) {
-    // 2. fetch next file to process
-    std::string name = toProcess->front();
-    toProcess->pop_front();
-    // 3. lookup file in the table, yielding list of dependencies
-    std::list<std::string> *ll = &theTable.t[name];
-    // 4. iterate over dependencies
-    for (auto iter = ll->begin(); iter != ll->end(); iter++) {
-      // 4a. if filename is already in the printed table, continue
-      if (printed->find(*iter) != printed->end()) { continue; }
-      // 4b. print filename
-      fprintf(fd, " %s", iter->c_str());
-      // 4c. insert into printed
-      printed->insert( *iter );
-      // 4d. append to toProcess
-      toProcess->push_back( *iter );
+void run(){
+    while ( workQ.size() > 0 ) {
+      std::string filename = workQ.ts_pop();
+      if ( filename.compare("") ) {
+        if (theTable.find(filename) == theTable.end()) {
+          exit(-1);
+        }
+          process(filename.c_str(), theTable.getList(filename));
     }
-  }
 }
-void run(int start, int argc, char *argv[]) {
-  int i;
-  // 4. for each file on the workQ
-  while ( workQ.get().size() > 0 ) {
-     std::string filename = workQ.pop();
-
-    if (theTable.t.find(filename) == theTable.t.end()) {
-      fprintf(stderr, "Mismatch between table and workQ\n");
-      exit(-1);
-    }
-
-    // 4a&b. lookup dependencies and invoke 'process'
-    process(filename.c_str(), &theTable.t[filename]);
-  }
-
-  // 5. for each file argument
-  for (i = start; i < argc; i++) {
-    // 5a. create hash table in which to track file names already printed
-    std::unordered_set<std::string> printed;
-    // 5b. create list to track dependencies yet to print
-    std::list<std::string> toProcess;
-
-    std::pair<std::string, std::string> pair = parseFile(argv[i]);
-
-    std::string obj = pair.first + ".o";
-    // 5c. print "foo.o:" ...
-    printf("%s:", obj.c_str());
-    // 5c. ... insert "foo.o" into hash table and append to list
-    printed.insert( obj );
-    toProcess.push_back( obj );
-    // 5d. invoke
-    printDependencies(&printed, &toProcess, stdout);
-
-    printf("\n");
-  }
 }
 int main(int argc, char *argv[]) {
   // 1. look up CPATH in environment
   char *cpath = getenv("CPATH");
-
-    const char * threadsStr = getenv("CRAWLER_THREADS");
-		int numThreads = 2;
-		if (threadsStr!=NULL){
-      int x; 
-      sscanf(threadsStr, "%d", &x); 
-			numThreads = x;
-    }
-
 
   // determine the number of -Idir arguments
   int i;
@@ -315,52 +353,62 @@ int main(int argc, char *argv[]) {
               pair.second.c_str());
       return -1;
     }
-
     std::string obj = pair.first + ".o";
 
     // 3a. insert mapping from file.o to file.ext
-    theTable.push( obj, { argv[i] } );
-    
+    theTable.insert( obj, { argv[i] } );
+
     // 3b. insert mapping from file.ext to empty list
-    theTable.push(  argv[i], { }  );
-    
+    theTable.insert( argv[i], { } );
+
     // 3c. append file.ext on workQ
-    workQ.push( argv[i] );
+    workQ.push_back( argv[i] );
   }
-  std::vector<std::thread> threads;
-  numOfWorkThreads = numThreads;
-   printf("Start task system with %d threads\n", numThreads);
-    for (auto n = 0; n !=numThreads; n++) {
-      threads.emplace_back([start,argc,argv](){ run(start,argc,argv); });
-    }
-  std::string nextFile=workQ.get().front(); 
-  while(&nextFile==NULL){
-    	if (numWaitingThreads >= numOfWorkThreads)
-					{
-						isWorking = false;
-					  workQ.ready.notify_all();
-					}
-					else
-					{
-						numWaitingThreads++;
-						workQ.ready.wait();
-					}
-					
-					if (!isWorking)
-					{
-						break;
-					}	
+
+
+  int numThreads = 2;
+  char * thread_string = getenv("CRAWLER_THREADS");
+  if (thread_string) {
+    numThreads = atoi(thread_string);
   }
-  while(&nextFile!=NULL){
-    std::list<std::string> *ll = &theTable.t[nextFile];
-    process(nextFile.c_str(), ll);
-	  theTable.get.push(nextFile, ll);
-	  nextFile = workQ.get().front(); 
-  }
-    workQ.setDone();
-    for (auto n = 0; n != numThreads; n++) {
-      threads[n].join();
-    }
-     run(start,argc,argv);
-  return 0;
+
+  std::thread * threads = new std::thread[numThreads];
+  for (int i = 0; i < numThreads; i++) {
+    // printf("Start thread %d.\n", i);
+    threads[i] = std::thread([] {
+     run();
+});
+}
+
+
+workQ.wait();
+
+/* Join all threads. */
+for (int i = 0; i < numThreads; i++) {
+threads[i].join();
+}
+
+
+// 5. for each file argument
+for (i = start; i < argc; i++) {
+// 5a. create hash table in which to track file names already printed
+std::unordered_set<std::string> printed;
+// 5b. create list to track dependencies yet to print
+std::list<std::string> toProcess;
+
+std::pair<std::string, std::string> pair = parseFile(argv[i]);
+
+std::string obj = pair.first + ".o";
+// 5c. print "foo.o:" ...
+printf("%s:", obj.c_str());
+// 5c. ... insert "foo.o" into hash table and append to list
+printed.insert( obj );
+toProcess.push_back( obj );
+// 5d. invoke
+printDependencies(&printed, &toProcess, stdout);
+
+printf("\n");
+}
+
+return 0;
 }

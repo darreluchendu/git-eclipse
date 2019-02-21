@@ -7,16 +7,16 @@
 #include <unistd.h>
 #include <netdb.h>
 
-  
+
 
 
 int main(int argc, char *argv[])
 {
-    argc=argc;
+    //argc=argc;
     char * output_fam;
     struct addrinfo hints, *ai, *ai0;
     char dst[INET6_ADDRSTRLEN];
-  
+
 
 // const char *ptr;
     memset(&hints, 0, sizeof(hints));
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     hints.ai_socktype = SOCK_STREAM; // Want a TCP socket
 
    //char myStrings[][15] = { argv[1], "youtube.com", "facebook.com", "baidu.com", "wikipedia.org", "qq.com","taobao.com","tmall.com","yahoo.com","amazon.com" ,"twitter.com","sohu.com","jd.com","live.com","instagram.com"};
- 
+
     for( char ** i =argv+1; *i != argv[argc]; i++)
 {
     getaddrinfo(*i, "5000", &hints, &ai0);
@@ -45,12 +45,12 @@ int main(int argc, char *argv[])
            }
         }
         printf("www.%s %s %s\n",*i , output_fam,dst);
-        
+
     }
 }
 
     return 0;
-    
-   
-  
+
+
+
 }
