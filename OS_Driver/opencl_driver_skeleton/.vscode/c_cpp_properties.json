@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "includePath": [
+                "${default}",
+                "C:/Intel/OpenCL/sdk/include/CL"
+            ]
+        }
+    ],
+    "version": 4
+}

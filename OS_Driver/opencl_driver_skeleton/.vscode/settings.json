@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "cl.h": "c",
+        "opencl.h": "c",
+        "pthread.h": "c",
+        "driver.h": "c"
+    }
+}
