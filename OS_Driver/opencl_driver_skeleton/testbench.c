@@ -3,7 +3,7 @@
 //#include <sys/types.h>
 #include <stdlib.h>
 
-
+#include <pthread.h>
 //#include <string.h>
 //#include <unistd.h>
 #include <errno.h>
@@ -26,11 +26,14 @@ struct thread_info {    /* Used as argument to thread_start() */
 
 void* thread_start(void *vtinfo) {
     struct thread_info *tinfo = vtinfo;
-#if VERBOSE_MT>3    
+#if VERBOSE_MT>3
     printf("Thread %llu started\n", tinfo->thread_num);
 #endif
     const unsigned int mSize = BUF_SZ;
-    // Create the data sets   
+    const int w1 = W1;
+    const int w2 = W2;
+
+    // Create the data sets
     int* mA=(int*)malloc(sizeof(int)*mSize);
     int* mB=(int*)malloc(sizeof(int)*mSize);
 
@@ -41,18 +44,19 @@ void* thread_start(void *vtinfo) {
     // Create the reference
     int* mCref=(int*)malloc(sizeof(int)*mSize);
     for (unsigned int i = 0; i<mSize; i++) {
-            mCref[i]=mA[i]*mA[i]+mB[i]*mB[i];        
+            mCref[i]=w1*mA[i]*mA[i]+w2*mB[i]*mB[i];
     }
 
     int* mC=(int*)malloc(sizeof(int)*mSize);
     tinfo->ocl->thread_num = tinfo->thread_num;
-    int status = run_driver(tinfo->ocl,mSize,mA,mB,mC);
+    int status = run_driver(tinfo->ocl,mSize,mA,mB,w1,w2,mC);
 
     // Check the returned result
     unsigned int correct=0;               // number of correct results returned
     for (unsigned int i = 0; i < mSize; i++){
         //std::cerr << mC[i] << " : " << mCref[i] << std::endl;
     	int reldiff = mC[i] - mCref[i];
+        printf("my answer was %d\n", reldiff);
         if(reldiff==0)
             correct++;
     }
@@ -62,7 +66,7 @@ void* thread_start(void *vtinfo) {
     free(mB);
     free(mC);
     return  (void*)(tinfo->thread_num);
-}    
+}
 
 int main(int argc, char *argv[]) {
     // Initialise OpenCL
@@ -108,13 +112,12 @@ int main(int argc, char *argv[]) {
             handle_error_en(st, "pthread_join");
 #if VERBOSE_MT>3
         printf("Joined with thread %llu\n", tinfo[tnum].thread_num);
-#endif        
+#endif
     }
 
     free(tinfo);
 
     shutdown_driver(ocl);
-    
+
     exit(EXIT_SUCCESS);
 }
-
