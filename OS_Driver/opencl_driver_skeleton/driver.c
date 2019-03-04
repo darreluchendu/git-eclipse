@@ -302,16 +302,21 @@ pthread_mutex_init(&ocl->device_lock,NULL);
     }
     // Check the status
 
-if (ocl->status==0){
-    printf("reading\n" );
-    err=clEnqueueReadBuffer (ocl->command_queue,status_buf,CL_TRUE,0,buffer_size, output_buffer, 0,NULL ,NULL);
+    err=clEnqueueReadBuffer (ocl->command_queue,status_buf,CL_TRUE,0,sizeof(int), ocl->status, 0,NULL ,NULL);
     if (err != CL_SUCCESS) {
          fprintf(stderr,"Error: Failed to write to device %d\n", err);
          exit(EXIT_FAILURE);
      }
-     *output_buffer=ocl->status;
-      return *output_buffer;
-}
+    if (ocl->kernel->status==0){
+        printf("reading\n" );
+        err=clEnqueueReadBuffer (ocl->command_queue,output,CL_TRUE,0,sizeof(int), output_buffer, 0,NULL ,NULL);
+        if (err != CL_SUCCESS) {
+            fprintf(stderr,"Error: Failed to write to device %d\n", err);
+            exit(EXIT_FAILURE);
+        }
+        *output_buffer=ocl->status;
+        return *output_buffer;
+    }
     // When the status is 0, read back the results from the device to verify the output
 printf("%d\n",ocl->status );
 status[1]=ocl->status;
